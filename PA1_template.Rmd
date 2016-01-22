@@ -1,0 +1,58 @@
+# Reproducible Research: Course Project 1
+
+### Loading and preprocessing the data
+```{r data processing,echo=TRUE}
+DF <- read.csv("activity.csv")   #Read the data
+library(data.table)
+DT <- data.table(DF)             #Conver the data frame to data table
+```
+### What is mean total number of steps taken per day?
+```{r steps taken per day,echo=TRUE}
+bad <- is.na(DT$steps)             #Find the NA element in steps
+DT1 <- DT[!bad,]                   #Extract parts without NA elements
+tspd <- DT1[,sum(steps), by=date]  #Total steps per day
+mspd <- DT1[,mean(steps),by=date]  #Mean steps per day
+mdspd <- DT1[,median(steps),by=date]  #Median steps per day
+hist(tspd$V1,breaks=10,main="Total steps per day",xlab="Steps",ylab="Frequency")
+```  
+
+### What is the average daily activity pattern?
+```{r average daily pattern,echo=TRUE}
+msacrd <- DT1[,mean(steps),by=interval] #mean steps across all days
+plot(msacrd$interval,msacrd$V1,type="l",xlab="5-minute interval",ylab="Average number of steps")
+```
+
+### Imputing missing values
+```{r imputing missing data,echo=TRUE}
+dim(DT[bad,])                    #The number of rows with NA
+CDT <- copy(DT)                  #Creat a new dataset
+CDT[,extra1:=mean(steps),by=date]
+CDT[is.na(steps),steps:=extra1]  #Replace NA with mean for that day
+CDT[is.na(steps),steps:=0]       #Replace the rest of NA with zero
+CDT[,extra1:=NULL]               #New dataset with missing value filled in
+
+tspd <- CDT[,sum(steps), by=date]  #Total steps per day
+mspd <- CDT[,mean(steps),by=date]  #Mean steps per day
+mdspd <- CDT[,median(steps),by=date]  #Median steps per day
+hist(tspd$V1,breaks=10,main="Total steps per day",xlab="Steps",ylab="Frequency")
+#Since all missing values are replace with mean, the total steps of each day will increase for the
+#day with NA value before this operation
+```
+
+### Are there differences in activity patterns between weekdays and weekends?
+```{r comparison between weekdays and weekends,echo=TRUE}
+CDT[,extra1:=weekdays(as.Date(CDT[,date],'%Y-%m-%d'))]   #Convert the date into weekdays
+CDT[,wds:="weekday"]
+CDT[extra1=="Saturday" | extra1=="Sunday",wds:="weekend"]
+CDT[,extra1:=NULL]
+CDT_sub1 <- CDT[CDT$wds=="weekday",]
+CDT_sub2 <- CDT[CDT$wds=="weekend",]
+msacr_weekday <-CDT_sub1[,mean(steps),by=interval] #mean steps across weekdays
+msacr_weekend <-CDT_sub2[,mean(steps),by=interval] #mean steps across weekdays
+msacr_weekday[,wds:="weekday"]
+msacr_weekend[,wds:="weekend"]
+l <- list(msacr_weekday,msacr_weekend)
+msacr_total <- rbindlist(l)                       #Concatenate these two data.table
+library(lattice)
+xyplot(V1~interval | wds, msacr_total,type="l",layout=c(1,2),xlab="Interval",ylab="Number of steps")
+```
